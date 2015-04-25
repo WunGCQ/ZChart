@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+    <script src="script/three.js"></script>
+    <script src="script/jquery.min.js"></script>
+    <script src="script/TrackballControls.js"></script>
+    <script src="script/LoadJsonMap.js"></script>
+    <script src="script/helvetiker_regular.typeface.js"></script>
+    <style>
+        body {
+            background-color: #f0f0f0;
+            margin: 0px;
+            overflow: hidden;
+        }
+        #btn1{
+            position:absolute;
+            top:20px;
+            right:20px;
+        }
+        #btn2{
+            position:absolute;
+            top:50px;
+            right:20px;
+        }
+        #btn3{
+            position:absolute;
+            top:80px;
+            right:20px;
+        }
+        #btn4{
+            position:absolute;
+            top:180px;
+            right:20px;
+        }
+        #minimap-div{
+            position:absolute;
+            right: 120px;
+            top: 200px;
+            width:460px;
+            height:282px;
+            background-color: #000000;
+        }
+        .miniImg{
+            -webkit-border-radius: 4px;
+            -moz-border-radius: 4px;
+            border-radius: 4px;
+            margin:5px;
+        }
+        .miniImg:hover{
+            border: 1px solid #6ce26c;
+        }
+        #page-title{
+            color:#999999;
+            position:absolute;
+            top:10px;
+            left:10px;
+        }
+    </style>
+</head>
+<body>
+<h2 id="page-title">国家GDP分布条形图</h2>
+<input type="button" id="btn1" value="显示数据" />
+<input type="button" id="btn2" value="数据排序" />
+<input type="button" id="btn3" value="2D<>3D"/>
+<input type="button" id="btn4" value="切换国家" />
+<div id="minimap-div">
+    <img src="data/miniMap/USA.png" id="USA-img" class="miniImg"/>
+    <img src="data/miniMap/China.png" id="China-img" class="miniImg"/>
+    <img src="data/miniMap/Canada.png" id="Canada-img" class="miniImg"/>
+    <img src="data/miniMap/Australia.png" id="Australia-img" class="miniImg"/>
+</div>
+</body>
+
+<script>
+    //main script
+    var winW = window.innerWidth, winH = window.innerHeight;
+
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    var orCamera = new THREE.OrthographicCamera(-35, 30, 20, -20, 3, -1000);
+    var renderer = new THREE.WebGLRenderer();
+
+    var controls = new THREE.TrackballControls(camera);
+    controls.rotateSpeed = 4.0;
+    controls.zoomSpeed = 1.2;
+    controls.panSpeed = 0.8;
+    controls.noZoom = false;
+    controls.noPan = false;
+    controls.staticMoving = true;
+    controls.dynamicDampingFactor = 0.3;
+    controls.keys = [ 65, 83, 68 ];
+    controls.addEventListener( 'change', render );
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    var countryAdjust = {
+        "USA": [95, -35],
+        "China":[-110, -32],
+        "Canada":[90, -65],
+        "Australia":[-135, 30]
+    };
+
+    var countryCameraPosition = {
+        "USA": new THREE.Vector3(9.7, 16.2, 15.25),
+        "China": new THREE.Vector3(0, 20.2, 9),
+        "Canada": new THREE.Vector3(1.4, 35.2, 21.25),
+        "Australia": new THREE.Vector3(0, 15, 20)
+    };
+
+    var countryName = "USA";
+
+    var lineGeometry = [];
+    var meshes = [];
+
+    //棒子图所需数据
+    var barMeshPosition = [];           //省份中央位置
+    var barMeshPositionInLine = [];     //排队位置
+    var barMesh = [];
+    var barMeshHeight = [];
+    var barMeshMaterial = [];
+    var barMeshText = [];
+
+    //Axis
+    var axisMesh = [];
+    var country;
+
+    var growUp = false;         //是否生成棒子图
+    var grown = false;          //是否停止生长
+    var heightNow = 0;          //当前高度
+    var barNow = 0;             //当前棒子
+    var lineUp = false;
+    var linen = 0;
+    
+    var growSpeed = 0.9;
+    
+    
+    function initData() {
+        growUp = false;         //是否生成棒子图
+        grown = false;          //是否停止生长
+        heightNow = 0;          //当前高度
+        barNow = 0;             //当前棒子
+        lineUp = false;
+        linen = 0;
+        growSpeed = 0.9;
+    }
+
+
+    function startPage() {
+        initData();
+        $("#minimap-div").hide(0);
+        country = new ZP.LoadJsonMap("data/" + countryName + ".json", eval("countryAdjust." + countryName), afterLoading);
+        animate();
+    }
+    startPage();
+    //载入地图后的动作
+    function afterLoading()
+    {
+        var stateLen = country.states.length;
+
+        for(var i=0;i<stateLen;i++){            //生成地图
+            lineGeometry[i] = [];
+            meshes[i] = [];
+            for(var j=0;j<country.states[i].coordinates.length;j++){
+                scene.remove(meshes[i][j]);
+
+                lineGeometry[i][j] = new THREE.Geometry();
+                lineGeometry[i][j].vertices = country.states[i].coordinates[j];
+                meshes[i][j] = new THREE.Line(lineGeometry[i][j], new THREE.LineBasicMaterial({color:0x00FF00}));
+
+                scene.add(meshes[i][j]);
+            }
+
+            barMeshPosition[i] = getStateMid(i);
+            barMeshHeight[i] = Math.random()*8+3;
+            barMeshMaterial[i] = genTransMaterial(0.8, Math.random()*0xFFFFFF);
+        }
+
+        camera.position.copy(eval("countryCameraPosition."+countryName));
+
+        //确定柱状图排序后的位置
+        var bigger = 0;
+        for(var i=0;i<stateLen;i++){
+            bigger = 0;
+            for(var j=0;j<stateLen;j++){
+                if(barMeshHeight[j]>barMeshHeight[i])bigger++;
+            }
+            barMeshPositionInLine[i] = bigger;
+        }
+
+        //二维视图中的坐标轴
+        var geom = new THREE.Geometry();
+        geom.vertices = [new THREE.Vector3(-30, -11, 10), new THREE.Vector3(28, -11, 10)];      //下轴
+        axisMesh[0] = new THREE.Line(geom.clone(), new THREE.MeshBasicMaterial({
+            color:0xFFFFFF
+        }));
+        geom.vertices = [new THREE.Vector3(-30, 4, 10), new THREE.Vector3(28, 4, 10)];
+        axisMesh[1] = new THREE.Line(geom.clone(), new THREE.MeshBasicMaterial({
+            color:0xFFFFFF
+        }));
+        geom.vertices = [new THREE.Vector3(-30, -11, 10), new THREE.Vector3(-30, 18, 10)];
+        axisMesh[2] = new THREE.Line(geom.clone(), new THREE.MeshBasicMaterial({
+            color:0xFFFFFF
+        }));
+        geom = new THREE.CircleGeometry(0.2, 20);
+        axisMesh[3] = new THREE.Mesh(geom.clone(), new THREE.MeshBasicMaterial({color:0x66CCFF}));
+        axisMesh[3].position.copy(new THREE.Vector3(28, -11, 9));
+        axisMesh[4] = new THREE.Mesh(geom.clone(), new THREE.MeshBasicMaterial({color:0x66CCFF}));
+        axisMesh[4].position.copy(new THREE.Vector3(28, 4, 9));
+        axisMesh[5] = new THREE.Mesh(geom.clone(), new THREE.MeshBasicMaterial({color:0x66CCFF}));
+        axisMesh[5].position.copy(new THREE.Vector3(-30, 18, 9));
+
+        for(var i=0;i<6;i++){
+            scene.remove(axisMesh[i]);
+            axisMesh[i].visible = false;
+            scene.add(axisMesh[i]);
+        }
+    }
+
+    function genTransMaterial(alpha, color)    //生成透明纹理
+    {
+        var x = document.createElement("canvas");
+        var xc = x.getContext("2d");
+        x.width = 128;
+        x.height = 128;
+        var co = (alpha*0xFFFFFF).toString(16);
+        xc.fillStyle = "#"+co;
+        xc.fillRect(0,0,128,128);
+
+        var alphaMap = new THREE.Texture(x);
+        alphaMap.needsUpdate = true;
+
+        return new THREE.MeshBasicMaterial({color:color, alphaMap:alphaMap, transparent:true});
+    }
+
+    function getStateMid(p)      //取最大值和最小值的中点
+    {
+        var mid = new THREE.Vector3();
+        var top=-10000, bottom=10000, left=10000, right=-10000;
+
+        var stateData = country.states[p].coordinates;
+
+        for(var i=0;i<stateData.length;i++){
+            for(var j=0;j<stateData[i].length;j++){
+                var nowP = stateData[i][j];
+
+                if(nowP.x > right)right = nowP.x;
+                if(nowP.x < left)left = nowP.x;
+                if(nowP.z > top)top = nowP.z;
+                if(nowP.z < bottom)bottom = nowP.z;
+            }
+        }
+        mid.x = (left+right)/2;
+        mid.z = (top+bottom)/2;
+        return mid;
+    }
+
+
+
+    function grow()
+    {
+        if(grown)return; //already grow up
+        
+        if(heightNow <= barMeshHeight[barNow]){
+            scene.remove(barMesh[barNow]);
+
+            barMesh[barNow] = new THREE.Mesh(new THREE.BoxGeometry(1, heightNow, 1), barMeshMaterial[barNow]);
+            barMesh[barNow].translateX(barMeshPosition[barNow].x);
+            barMesh[barNow].translateY(heightNow/2);
+            barMesh[barNow].translateZ(barMeshPosition[barNow].z);
+            scene.add(barMesh[barNow]);
+
+            if(heightNow == barMeshHeight[barNow] || heightNow + growSpeed <= barMeshHeight[barNow]){
+                heightNow+=growSpeed;
+            }else{
+                scene.remove(barMeshText[barNow]);
+                heightNow = barMeshHeight[barNow];
+                //添加文字信息
+                var theText = country.states[barNow].name;
+                barMeshText[barNow] = new THREE.Mesh(
+                        new THREE.TextGeometry(theText, {size:0.4,height:0.01,curveSegments:1,font:"helvetiker"}),
+                        genTransMaterial(0.6, barMesh[barNow].material.color));
+                barMeshText[barNow].translateX(barMeshPosition[barNow].x-1);
+                barMeshText[barNow].translateZ(barMeshPosition[barNow].z);
+                barMeshText[barNow].translateY(barMeshHeight[barNow]+0.6);
+                scene.add(barMeshText[barNow]);
+            }
+        }else{
+            barNow++;
+            heightNow = 0;
+            if(barNow >= country.states.length)grown = true;
+        }
+
+        render();
+    }
+
+    function lineUpMesh()
+    {
+        if(linen == country.states.length){
+            return;
+        } //already lined up
+
+        var jump = 20;
+        var oneLineNum = parseInt((country.states.length+1)/2);
+        for(var i=0;i<country.states.length;i++){
+
+            var targetX = (barMeshPositionInLine[i]%oneLineNum*2)-27;
+            var targetZ = 10;
+            var targetY = Math.floor(barMeshPositionInLine[i]/oneLineNum) * 15 -11 + barMeshHeight[i]/2;
+
+            var difx = targetX - barMesh[i].position.x;
+            var dify = targetY - barMesh[i].position.y;
+            var difz = targetZ - barMesh[i].position.z;
+
+            if(difx == 0 && difz == 0 && dify == 0)continue;
+            if(Math.abs(difx)<0.01 && Math.abs(difz)<0.01 && Math.abs(dify) == 0){
+                jump = 1;
+                linen++;
+            }
+            barMesh[i].translateX(difx/jump);
+            barMesh[i].translateZ(difz/jump);
+            barMesh[i].translateY(dify/jump);
+
+            barMeshText[i].translateX(difx/jump);
+            barMeshText[i].translateY(dify/jump);
+            barMeshText[i].translateZ(difz/jump);
+
+            jump = 20;
+        }
+
+        render();
+
+    }
+
+    function animate()
+    {
+        requestAnimationFrame(animate);
+
+        if(growUp)grow();
+        if(lineUp)lineUpMesh();
+        controls.update();
+    }
+
+    function render()
+    {
+        if(twoDimension){
+            renderer.render(scene, orCamera);
+        }else {
+            renderer.render(scene, camera);
+        }
+        //stats.update();
+    }
+
+    var twoDimension = false;
+    var showCountryMiniMap = false;
+    $("#btn1").click(function(){
+        growUp = true;
+    });
+    $("#btn2").click(function(){
+        if(growUp)
+            lineUp = true;
+    });
+    $("#btn3").click(function(){
+        twoDimension = !twoDimension;
+        for(var i=0;i<country.states.length;i++){
+            for(var j=0;j<meshes[i].length;j++){
+                meshes[i][j].visible = !meshes[i][j].visible;
+            }
+        }
+        for(var i=0;i<6;i++){           //改变坐标轴的显隐
+            axisMesh[i].visible = !axisMesh[i].visible;
+        }
+        render();
+    });
+    $("#btn4").click(function(){
+        showCountryMiniMap = !showCountryMiniMap;
+        if(showCountryMiniMap){
+            $("#minimap-div").show(300);
+        }
+        else{
+            $("#minimap-div").hide(300);
+        }
+    });
+    $(".miniImg").click(function(e){
+        twoDimension = false;
+        scene = new THREE.Scene();
+        countryName = $(this).attr("id").toString().split('-')[0];
+        startPage();
+    });
+</script>
+</html>

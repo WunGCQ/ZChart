@@ -1,0 +1,56 @@
+.ZChartPanel {
+    position : absolute;
+    top: 0;
+    left: 0;
+    width: 200px;
+    background-color: #AAAAAA;
+    color: #000000;
+}
+
+.ZChartPanel:hover {
+    cursor: pointer;
+}
+
+ol{
+    padding: 0;
+    margin: 0;
+}
+
+li {
+    list-style: none;
+    border-top: 1px solid black;
+    height: 30px;
+}
+
+li div {
+    margin: 2px;
+    padding: 1px;
+}
+
+#open-control-ol li {
+    text-align: center;
+    height: 20px;
+    font-size: small;
+}
+
+.item-li {
+    border-left: 3px solid #0066cc;
+    padding-left: 20px;
+}
+
+#source-code-area {
+    width:198px;
+    height: 420px;
+    background-color: #222222;
+    color: #FFFFFF;
+}
+
+#chart-scene {
+    position: absolute;
+    top:0;
+    left:200px;
+}
+
+#submit-source-code {
+    margin-left: 20px;
+}

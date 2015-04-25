@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+
+    <script src="script/three.js"></script>
+    <script src="script/TrackballControls.js"></script>
+    <script src="script/jquery.min.js"></script>
+    <script src="script/helvetiker_regular.typeface.js"></script>
+    <script src="script/bootstrap-3.3.4/js/bootstrap.min.js"></script>
+
+    <script src="script/jquery-ui-1.11.4/jquery-ui.min.js"></script>
+    <script src="script/evol.colorpicker.min.js"></script>
+
+    <script src="script/ZChart/ZChart.js"></script>
+    <script src="script/ZChart/Chart.js"></script>
+    <script src="script/ZChart/BarChart.js"></script>
+    <script src="script/ZChart/Tool.js"></script>
+    <link rel="stylesheet" href="style/Panel.css" />
+    <link rel="stylesheet" href="script/jquery-ui-1.11.4/jquery-ui.min.css" />
+    <link rel="stylesheet" href="style/evol.colorpicker.min.css" />
+    <link rel="stylesheet" href="script/bootstrap-3.3.4/css/bootstrap.min.css">
+
+    <style>
+        body {
+            background-color: #000000;
+            margin: 0;
+            overflow: hidden;
+            font-family: Trebuchet MS, Tahoma, Verdana, Arial, sans-serif;
+        }
+
+    </style>
+</head>
+<body>
+<div class="ZChartPanel">
+    <ol class="control-panel-ol">
+        <li class="title-li"><label>Themes</label></li>
+        <li class="item-li check-li">
+            <input type="checkbox" checked="checked" value="yes" id="light-check-btn"/><label>Light On</label>
+        </li>
+        <li class="item-li check-li">
+            <input type="checkbox" checked="checked" value="yes" id="rotate-check-btn"/><label>Auto Rotate</label>
+        </li>
+        <li class="title-li" id="color-picker-title-li">
+            <span class="glyphicon glyphicon-menu-right"></span>
+            <label>Model Color</label>
+        </li>
+        <li class="item-li" id="color-picker-li">
+            <input type="text" style="width:60px;" id="color-picker" />
+        </li>
+        <li class="title-li" id="source-code-title-li">
+            <span class="glyphicon glyphicon-menu-right" aria-hidden="true"></span>
+            <label>Show JSON File</label>
+        </li>
+    </ol>
+    <ol id="open-control-ol">
+        <li><label>open controls</label></li>
+    </ol>
+    <textarea id="source-code-area"></textarea>
+    <input type="button" id="submit-source-code" value="Apply Change"/>
+</div>
+
+<div id="chart-scene"></div>
+</body>
+<script>
+    //初始化
+    var chartDiv = document.getElementById("chart-scene");
+    var c = new ZChart.BarChart(chartDiv);
+
+    c.loadDataFromJson("data/BarChartData.json", callback);
+
+    c.controls.addEventListener('change', render);
+
+    animate();
+    function callback () {
+        render();
+    }
+
+    function animate(){
+        requestAnimationFrame(animate);
+        c.rotate(0.01);
+        render();
+        c.controls.update();
+
+    }
+
+    function render(){
+        c.renderer.render(c.scene, c.camera);
+    }
+
+    $(document).ready(function(){
+
+        var showPanel = false;
+        var showColorPanel = false;
+        var showSourceCode = false;
+
+        $(".control-panel-ol").hide();
+        $("#color-picker-li").hide();
+        $("#source-code-area").hide();
+        $("#submit-source-code").hide();
+
+        $("#open-control-ol").click(function(){
+            if(showPanel == false){
+                $(".control-panel-ol").show(200);
+                $("#open-control-ol > li >label").text("hide controls");
+                showPanel = true;
+            }else{
+                $(".control-panel-ol").hide(200);
+                $("#open-control-ol > li > label").text("open controls");
+                showPanel = false;
+
+            }
+        });
+
+        $("#color-picker").colorpicker({
+            color: "#66ccff"
+        });
+        $("#color-picker").on("change.color", function( event, color ) {
+            c.drawData(color);
+        });
+        $("#color-picker-title-li").click(function(){
+            if(showColorPanel==false){
+                $("#color-picker-li").show(200);
+                $("#color-picker-title-li > span").toggleClass("glyphicon-menu-down");
+                $("#color-picker-title-li > span").toggleClass("glyphicon-menu-right");
+                showColorPanel = true;
+            }else{
+                $("#color-picker-li").hide(200);
+                $("#color-picker-title-li > span").toggleClass("glyphicon-menu-down");
+                $("#color-picker-title-li > span").toggleClass("glyphicon-menu-right");
+                showColorPanel = false;
+            }
+        });
+
+        $("#source-code-title-li").click(function(){
+            if(showSourceCode == false){
+                $("#source-code-area").show(200);
+                $("#submit-source-code").show(200);
+                $("#source-code-title-li > span").toggleClass("glyphicon-menu-down");
+                $("#source-code-title-li > span").toggleClass("glyphicon-menu-right");
+                $("#source-code-title-li > label").text("Save JSON File");
+            }
+            else {
+                $("#source-code-area").hide(200);
+                $("#submit-source-code").hide(200);
+                $("#source-code-title-li > span").toggleClass("glyphicon-menu-down");
+                $("#source-code-title-li > span").toggleClass("glyphicon-menu-right");
+                $("#source-code-title-li > label").text("Show JSON File");
+            }
+            showSourceCode = !showSourceCode;
+        });
+
+        $.ajax({
+            url: "data/BarChartData.json",
+            type: "POST",
+            dataType:"text",
+            success: function(data){
+                $("#source-code-area").text(data);
+            }
+        });
+
+        $("#light-check-btn").click(function(){
+            c.switchLight();
+        });
+
+        $("#submit-source-code").click(function(){
+            var text = JSON.parse($("#source-code-area").val());
+            c.drawFromJson( text );
+        });
+
+        $("#rotate-check-btn").click(function(){
+            c.switchAutoRotate();
+        });
+    });
+</script>
+</html>

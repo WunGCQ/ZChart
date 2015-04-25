@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+    <script src="script/three.min.js"></script>
+    <script src="script/jquery.min.js"></script>
+    <script src="script/TrackballControls.js"></script>
+    <style>
+        #click{
+            position:absolute;
+            top:20px;
+            right:20px;
+        }
+    </style>
+</head>
+<body>
+    <input type="button" id="click" value="click" />
+</body>
+<script>
+    //main script
+    var i,j;//local vars
+
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    //var orthoCamera = new THREE.OrthographicCamera(winW/-2+(num-1)/2, winW/2+(num-1)/2, winH/2, winH/-2, -10, 1000);
+    var renderer = new THREE.WebGLRenderer();
+
+    var controls = new THREE.TrackballControls(camera);
+
+    controls.rotateSpeed = 4.0;
+    controls.zoomSpeed = 1.2;
+    controls.panSpeed = 0.8;
+
+    controls.noZoom = false;
+    controls.noPan = false;
+
+    controls.staticMoving = true;
+    controls.dynamicDampingFactor = 0.3;
+
+    controls.keys = [ 65, 83, 68 ];
+
+    controls.addEventListener( 'change', render );
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    var provinceNum = 34;
+    var provinces = [];         //省份信息
+    var provinceGeometry = [];  //省份地形信息
+    var provincesMid = [];      //计算省份中点
+    var proShape = [];
+    var provinceData = [];      //要展示的信息 例如GDP等等
+
+    var boxGeometry = [];
+    var boxes = [];
+
+    animate();
+
+    $.getJSON("data/china.json", function(data){
+
+        //初始化省份信息
+        for(i=0;i<provinceNum;i++) {
+            provinces[i] = data.features[i];
+        }
+
+        for(j=0;j<provinceNum;j++){
+            var verts = provinces[j].geometry.coordinates[0];
+            if(j == 1){
+                verts = provinces[j].geometry.coordinates[0][0];
+                verts.concat(provinces[j].geometry.coordinates[0][1]);
+            }
+            var vlen = verts.length;
+            provinceGeometry[j] = new THREE.Geometry();
+
+            for(i=0;i<vlen;i++){
+                provinceGeometry[j].vertices.push(
+                        new THREE.Vector3((verts[i][0]-105)*0.06, 0, -(verts[i][1]-30)*0.06)
+                );
+
+            }
+
+            provincesMid[j] = getProvinceMid(j, vlen);
+
+            proShape[j] = new THREE.Line(provinceGeometry[j], new THREE.LineBasicMaterial({color:0x4488FF}));
+            scene.add(proShape[j]);
+        }
+
+        //初始化box信息
+        //载入数据
+        for(i=0;i<provinceNum;i++){
+            provinceData[i] = Math.random()*0.3+0.1;
+        }
+
+        for(i=0;i<provinceNum;i++){
+            boxGeometry[i] = new THREE.BoxGeometry(0.03, provinceData[i], 0.03);
+            boxes[i] = new THREE.Mesh(boxGeometry[i], generateMaterial(0.5));
+            boxes[i].translateX(provincesMid[i].x);
+            boxes[i].translateZ(provincesMid[i].z);
+            boxes[i].translateY(provinceData[i]/2);
+
+            scene.add(boxes[i]);
+        }
+
+        var light = new THREE.DirectionalLight(0xFFFFFF, 1);
+        var midP = new THREE.Vector3(0, 0, 0);
+
+        camera.position.z = 1;
+        camera.position.y = 1;
+        camera.position.x = 0;
+
+        camera.lookAt(midP);
+
+        //render();
+    });
+
+    function animate()
+    {
+        requestAnimationFrame(animate);
+        controls.update();
+    }
+
+    function render()
+    {
+        renderer.render(scene, camera);
+        //stats.update();
+    }
+
+
+    function generateMaterial(alpha)    //生成透明纹理
+    {
+        var x = document.createElement("canvas");
+        var xc = x.getContext("2d");
+        x.width = 128;
+        x.height = 128;
+        xc.fillStyle = "#666666";
+        xc.fillRect(0,0,128,128);
+
+        var alphaMap = new THREE.Texture(x);
+        alphaMap.needsUpdate = true;
+
+        return new THREE.MeshBasicMaterial({color:Math.random()*256*256*256, alphaMap:alphaMap, transparent:true});
+    }
+
+    function getProvinceMid(t, ptsLen)      //取最大值和最小值的中点
+    {
+        var mid = new THREE.Vector3();
+        var top=-100, bottom=100, left=100, right=-100;
+
+        for(i=0;i<ptsLen;i++){
+            var nowP = provinceGeometry[t].vertices[i];
+            if(nowP.x > right)right = nowP.x;
+            if(nowP.x < left)left = nowP.x;
+            if(nowP.z > top)top = nowP.z;
+            if(nowP.z < bottom)bottom = nowP.z;
+        }
+        mid.x = (left+right)/2;
+        mid.z = (top+bottom)/2;
+        return mid;
+    }
+
+
+
+
+</script>
+</html>

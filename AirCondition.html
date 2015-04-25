@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+    <script src="script/three.js"></script>
+    <script src="script/jquery.min.js"></script>
+    <script src="script/TrackballControls.js"></script>
+    <script src="script/LoadJsonMap.js"></script>
+    <script src="script/helvetiker_regular.typeface.js"></script>
+    <script src="script/Zebra_Datepicker-master/public/javascript/zebra_datepicker.js">
+    </script>
+    <link rel="stylesheet" href="script/Zebra_Datepicker-master/public/css/bootstrap.css" type="text/css">
+    <style>
+        #btn1{
+            position:absolute;
+            top:20px;
+            right:20px;
+        }
+        #btn2{
+            position:absolute;
+            top:50px;
+            right:20px;
+        }
+        #btn3{
+            position:absolute;
+            top:80px;
+            right:20px;
+        }
+        #btn4{
+            position:absolute;
+            top:120px;
+            right:20px;
+        }
+        #btn6{
+            position:absolute;
+            top:150px;
+            right:60px;
+        }
+        #btn7{
+            position:absolute;
+            top:180px;
+            right:60px;
+        }
+        #dateInfo{
+            position:absolute;
+        }
+        #dateTime{
+            margin-left: 200px;
+        }
+        body {
+            font-family: Monospace;
+            background-color: #f0f0f0;
+            margin: 0px;
+            overflow: hidden;
+        }
+        #weatherDiv{
+            background-color:#FFFFFF;
+            width:170px;
+            height:120px;
+            position:absolute;
+            bottom:20px;
+            right:50px;
+            border-radius: 5px;
+            border: 1px solid #CCCCCC;
+            padding: 2px;
+        }
+        #weatherText{
+            position: absolute;
+            right:30px;
+            bottom:50px;
+            color:#482424;
+        }
+        #weatherText2{
+            font-size:40px;
+            position: absolute;
+            right:30px;
+            bottom:-10px;
+            color:#482424;
+        }
+        .thisHourDetail{
+            background-color: #67AABB;
+            width: 80px;
+            height: 80px;
+            -webkit-border-radius: 50px;
+            -moz-border-radius: 50px;
+            border-radius: 50px;
+            border: 3px solid #CCCCCC;
+        }
+        #hourTitle{
+            padding-top: 10px;
+            padding-left:21px;
+            padding-bottom: 10px;
+            margin:0px;
+        }
+        #hourAQI{
+            font-size:5px;
+            padding-left:13px;
+            margin:0px;
+        }
+        #hourPM{
+            font-size:5px;
+            padding-left: 8px;
+            margin:0px;
+        }
+        .pagetext{
+            color:white;
+        }
+        #whilteBtn{
+            position: absolute;
+            top:138px;
+            right:20px;
+        }
+        #blackBtn{
+            position: absolute;
+            top:168px;
+            right:20px;
+        }
+    </style>
+</head>
+<body>
+<input type="button" id="btn1" value="意义不明" style="visibility: hidden;"/>
+<input type="button" id="btn2" value="沙尘暴" />
+<input type="button" id="btn3" value="2D<>3D" />
+<input type="button" id="btn4" value="四季平均值"/>
+<input type="radio" name="colorSceme" value="whilte" id="btn6"/><p id="whilteBtn" class="pagetext">white</p>
+<input type="radio" name="colorSceme" value="black" id="btn7"/><p id="blackBtn" class="pagetext">black</p>
+<div id="dateInfo">
+    <h2 class="pagetext">北京市空气质量监测数据(24h)</h2>
+    <input type="text" class="datepicker" id="dateTime" value="2015-01-03"/>
+</div>
+<div id="weatherDiv">
+    <img id="weatherImg" src="data/sunny.jpg"/>
+    <h3 id="weatherText"></h3>
+    <p id="weatherText2"></p>
+</div>
+</body>
+<script>
+    //初始化
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    var renderer = new THREE.WebGLRenderer();
+    var controls = new THREE.TrackballControls(camera);
+
+    controls.rotateSpeed = 4.0;
+    controls.zoomSpeed = 1.2;
+    controls.panSpeed = 0.8;
+    controls.noZoom = false;
+    controls.noPan = false;
+    controls.staticMoving = true;
+    controls.dynamicDampingFactor = 0.3;
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    controls.addEventListener('change', render);
+
+    renderer.setClearColor(0x010100);
+    animate();
+
+
+    //数据区
+    var i,j; //局部变量
+
+    var pcDensity;             //烟雾相关数据 pc:PointCloud
+    var pcGeometry = [];
+    var pcMesh = [];
+    //var pcColor = [0x66ccff, 0xd9f221, 0xd3d300, 0xc4b146];
+    //var seasonColor = [0x99CC66, 0xCC0033, 0xFF9900, 0x99CCFF];
+    //var pcColor = [0xCCCC33, 0xCC9933, 0xAAAAAA, 0xCCCC99];
+    var pcColor = [0x663300, 0x996633, 0x333300, 0x333333];
+    var seasonColor = [0x339933, 0xFF6666, 0xFFCC33, 0x0099FF];
+
+    var pcLeft = -12, pcRight = 12, pcTop = 3, pcBottom = -3, pcFront = 4, pcBack = -4;
+
+    var slGeometry = [];            //包围网格 sl:Surrounding Line
+    var slMesh = [];
+    var slMonthText = ["Jan.", "Feb.", "Mar.", "Apr.", "May.", "Jun.", "Jul.", "Aug.", "Sep.", "Oct.", "Nov.", "Dec.", ""];
+    var slPollutionText = ["0 /", "50", "100", "150", "200", "300", "AQI"];
+
+    var slTempText = [];
+
+    var dataGeometry = [];          //数据相关
+    var dataMesh = [];
+    var pollution = {}; //包括pm2.5和aqi
+    var linkGeometry = [];
+    var linkMesh = [];
+    var midPoint = new THREE.Vector3(0, 0, 0);
+
+    var orCamera = new THREE.OrthographicCamera(pcLeft-3, pcRight+3, pcTop+1, pcBottom-1, 10, -1000);
+    var dateNow = new Date(2014, 0, 1);
+
+    var pickingData = [];
+    var pickingTexture, pickingScene, pickingGeometry;
+    var color = new THREE.Color;
+    var highlightSphere;
+    var mouse = new THREE.Vector2(1, 1);
+    var offset = new THREE.Vector3(10, 10, 10);
+    pickingScene = new THREE.Scene();
+    pickingTexture = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight);
+    pickingTexture.minFilter = THREE.LinearFilter;
+    pickingTexture.generateMipmaps = false;
+    pickingGeometry = new THREE.Geometry();
+
+    var multiLineMode = false;      //屏幕中可以同时存在多条线
+    var seasonMesh = [];
+    var seasonLinkMesh = [];
+
+    var loadingComplete = false;
+    var ambientLight = new THREE.AmbientLight(0x555555);
+    scene.add(ambientLight);
+    //首先是坐标轴，暂时用包围网格来实现
+
+    for(i=pcLeft;i<=pcRight;i++){
+        scene.add(getLineMesh(
+                new THREE.Vector3(i, pcBottom, pcFront),
+                new THREE.Vector3(i, pcBottom, pcBack)
+        ));
+        //此处加入下标
+        if(pcRight == 6)
+            scene.add(getMonthMesh(
+                    new THREE.Vector3(i, pcBottom, pcFront)
+            ));
+        else
+            scene.add(getNumberMesh(
+                    new THREE.Vector3(i, pcBottom, pcFront)
+            ));
+        scene.add(getLineMesh(
+                new THREE.Vector3(i, pcTop, pcFront),
+                new THREE.Vector3(i, pcTop, pcBack)
+        ));
+    }
+    for(i=pcBottom;i<=pcTop;i++){
+        scene.add(getLineMesh(
+                new THREE.Vector3(pcLeft, i, pcFront),
+                new THREE.Vector3(pcLeft, i, pcBack)
+        ));
+        //此处加入污染等级
+        scene.add(getPollutionMesh(
+                new THREE.Vector3(pcLeft, i, pcFront)
+        ));
+        scene.add(getLineMesh(
+                new THREE.Vector3(pcRight, i, pcFront),
+                new THREE.Vector3(pcRight, i, pcBack)
+        ));
+    }
+    for(i=pcBack;i<=pcFront;i++){
+        scene.add(getLineMesh(
+                new THREE.Vector3(pcLeft, pcBottom, i),
+                new THREE.Vector3(pcRight, pcBottom, i)
+        ));
+        scene.add(getLineMesh(
+                new THREE.Vector3(pcLeft, pcTop, i),
+                new THREE.Vector3(pcRight, pcTop, i)
+        ));
+    }
+    for(i=pcBack;i<=pcFront;i++){
+        scene.add(getLineMesh(
+                new THREE.Vector3(pcLeft, pcTop, i),
+                new THREE.Vector3(pcLeft, pcBottom, i)
+        ));
+        scene.add(getLineMesh(
+                new THREE.Vector3(pcRight, pcTop, i),
+                new THREE.Vector3(pcRight, pcBottom, i)
+        ));
+    }
+
+    //这里用pointCloud表示烟雾浓度，分为4级
+    function generatePointCloud() {
+        pcDensity = 15000;
+        for (i = 0; i < 4; i++) {
+            scene.remove(pcMesh[i]);
+            pcGeometry[i] = new THREE.Geometry();
+            for (j = 0; j < pcDensity; j++) {
+                var vTest = new THREE.Vector3(
+                        Math.random() * (pcRight - pcLeft + 2) + pcLeft - 1,
+                        Math.random() * (pcTop - pcBottom + 2) + pcBottom - 1,
+                        Math.random() * 2 + pcFront - 2
+                );
+                if (vTest.x > pcLeft && vTest.x < pcRight && vTest.y > pcBottom && vTest.y < pcTop)
+                    pcGeometry[i].vertices.push(vTest);
+            }
+            pcMesh[i] = new THREE.PointCloud(pcGeometry[i], new THREE.PointCloudMaterial({
+                size: 0.01,
+                color: pcColor[i]
+            }));
+            scene.add(pcMesh[i]);
+            pcFront -= 2;
+            pcDensity *= 1.1;
+        }
+        pcFront = 4;
+    }
+    generatePointCloud();
+
+
+    //camera.position.z = 14;
+    camera.position.x = -12.1;
+    camera.position.y = -0.8;
+    camera.position.z = 9.3;
+
+    //加载2014年的全年数据
+//    function load2014()
+//    {
+//        window.t = setInterval(function(){
+//            if(dateNow.getYear() > 2014) {
+//                console.log(dateNow);
+//                setTimeout(function(){clearInterval(window.t)},0);
+//                return;
+//            }else {
+//                loadCSV(pollution, dateNow.getFullYear(), dateNow.getMonth()+1, dateNow.getDate(), afterLoading);
+//                dateNow.setDate(dateNow.getDate()+3);
+//            }
+//        }, 100);
+//
+//    }
+//    load2014();
+
+    loadCSV(pollution, dateNow.getFullYear(), dateNow.getMonth()+1, dateNow.getDate(), afterLoading);
+    var pickingMesh = [];
+    var avgAqi = 0;
+    var avgPm = 0;
+    function judgeSeason(month) {
+        if(2<month&& month<6){
+            console.log(0);
+            return 0;
+        }else if(5 <month && month < 9) {
+            console.log(1);
+            return 1;
+        }else if (8< month && month < 12) {
+            console.log(2);
+            return 2;
+        }else {
+            console.log(3);
+            return 3;
+        }
+    }
+
+    $("#weatherDiv").hide();
+    function afterLoading() {
+        avgAqi = 0;
+        avgPm = 0;
+        for (i = 0; i < pcRight - pcLeft; i++) {        //点
+            scene.remove(dataMesh[i]);
+
+            pickingScene.remove(pickingMesh[i]);
+
+            dataGeometry[i] = new THREE.SphereGeometry(0.065, 10, 10);
+            dataMesh[i] = new THREE.Mesh(dataGeometry[i], new THREE.MeshBasicMaterial({color:seasonColor[judgeSeason(dateNow.getMonth()+1)]}));
+//            console.log(seasonColor[(dateNow.getMonth()+1)/4]);
+            dataMesh[i].translateX(i + pcLeft);
+            if(pollution.maxAqi < 300)pollution.maxAqi = 300;
+            if(pollution.maxPm < 100)pollution.maxPm = 100;
+            dataMesh[i].translateY(reRange(0, pollution.maxAqi, pcBottom, pcTop, pollution.aqi[i]));
+            dataMesh[i].translateZ(reRange(0, pollution.maxPm, pcFront, pcBack, pollution.pm25[i]));
+
+            pickingData[i] = dataMesh[i].position;
+
+            scene.add(dataMesh[i]);
+            pickingMesh[i] = dataMesh[i].clone();
+            pickingMesh[i].material = new THREE.MeshBasicMaterial({color:color.setHex(i)});
+            pickingScene.add(pickingMesh[i]);
+
+            avgAqi += (isNaN(pollution.aqi[i]))?0:pollution.aqi[i];
+            avgPm += (isNaN(pollution.pm25[i]))?0:pollution.pm25[i];
+        }
+
+        for (i = 0; i < pcRight - pcLeft - 1; i++) {        //连线
+
+            scene.remove(linkMesh[i]);
+
+            linkGeometry[i] = new THREE.Geometry();
+            linkGeometry[i].vertices.push(dataMesh[i].position, dataMesh[i + 1].position);
+            linkMesh[i] = new THREE.Line(linkGeometry[i], new THREE.LineBasicMaterial({color:seasonColor[judgeSeason(dateNow.getMonth()+1)]}));
+
+            scene.add(linkMesh[i]);
+        }
+        highlightSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.13, 10, 10),
+            new THREE.MeshLambertMaterial( { color: 0xCCCCCC }
+            ));
+        highlightSphere.visible = false;
+        scene.add(highlightSphere);
+
+
+        loadingComplete = true;
+        //生成右下角的小Tip
+        generateTip();
+        render();
+    }
+
+    function getLineMesh(a, b)
+    {
+        var geo = new THREE.Geometry();
+        geo.vertices.push(a, b);
+        return new THREE.Line(geo, new THREE.LineBasicMaterial({color:0x888888}));
+    }
+
+    function getMonthMesh(a){
+        var theText = slMonthText[a.x-pcLeft];
+        var mesh = new THREE.Mesh(
+                new THREE.TextGeometry(theText, {size:0.12,height:0.01,curveSegments:1,font:"helvetiker"}),
+                new THREE.MeshBasicMaterial({color:0x006df2})
+        );
+        mesh.translateX(a.x);
+        mesh.translateY(a.y-0.1);
+        mesh.translateZ(a.z);
+        return mesh;
+    }
+
+    function getNumberMesh(v){
+
+        var theText = (v.x-pcLeft).toString()+":00";
+        if(v.x == pcRight)theText = "Hour";
+        var mesh = new THREE.Mesh(
+                new THREE.TextGeometry(theText, {size:0.12,height:0.01,curveSegments:1,font:"helvetiker"}),
+                new THREE.MeshBasicMaterial({color:0x006df2})
+        );
+        mesh.translateX(v.x);
+        mesh.translateY(v.y-0.1);
+        mesh.translateZ(v.z);
+        return mesh;
+    }
+
+    function getPollutionMesh(v){
+        var theText = slPollutionText[v.y-pcBottom];
+        var mesh = new THREE.Mesh(
+                new THREE.TextGeometry(theText, {size:0.12,height:0.01,curveSegments:1,font:"helvetiker"}),
+                new THREE.MeshBasicMaterial({color:0x006df2})
+        );
+        mesh.translateX(v.x-0.3);
+        mesh.translateY(v.y-0.1);
+        mesh.translateZ(v.z);
+        return mesh;
+    }
+
+    function getDarkColor(darkStandard) //返回一个比较深的颜色 比darkStandard更深
+    {
+        var r, g, b;
+        r = parseInt(Math.random()*darkStandard);
+        g = parseInt(Math.random()*darkStandard);
+        b = parseInt(Math.random()*darkStandard);
+        return ((r*256)+g)*256+b;
+    }
+
+    function stormIsComing()
+    {
+        var speed = 0.01;
+        var mat = new THREE.Matrix4();
+        for(j=0;j<4;j++) {
+            mat.makeTranslation(speed, 0, 0);
+            for (i = 0, il = pcGeometry[j].vertices.length; i < il; i++) {
+                if (pcGeometry[j].vertices[i].x < pcRight)
+                    pcGeometry[j].vertices[i].applyMatrix4(mat);
+                else pcGeometry[j].vertices[i].x -= (pcRight-pcLeft);
+            }
+            pcGeometry[j].verticesNeedUpdate = true;
+
+            scene.remove(pcMesh[j]);
+            pcMesh[j] = new THREE.PointCloud(pcGeometry[j], new THREE.PointCloudMaterial({
+                size: 0.01,
+                color: pcColor[j]
+            }));
+            scene.add(pcMesh[j]);
+            speed += 0.03;
+        }
+        //render();
+    }
+
+    function goWithTheLine()
+    {
+        if(xNow<pcRight-1){
+            var p = getLocationFromX(xNow);
+            camera.position.set(p.x, p.y, p.z);
+            xNow += 0.02;
+        }else{
+            camera.position.set(0, 0, 8);
+            going = false;
+        }
+    }
+
+    function getLocationFromX(x)
+    {
+        var preX = Math.floor(x);
+        var dist = x-preX;
+        var prePt = dataMesh[preX-pcLeft].position;
+        var nextPt = dataMesh[preX-pcLeft+1].position;
+
+        return new THREE.Vector3(
+                prePt.x*(1-dist)+nextPt.x*dist,
+                prePt.y*(1-dist)+nextPt.y*dist,
+                prePt.z*(1-dist)+nextPt.z*dist
+        );
+
+    }
+
+    function loadCSV(pollution, year, month, day, callback){
+        //设置标题日期
+
+        loadingComplete = false;
+
+        var monthStr = (month<10)?"0"+month.toString():month.toString();
+        var dayStr = (day<10)?"0"+day.toString():day.toString();
+        var folder = "all";
+        var url="data/Beijing/"+folder+"/"+year.toString()+monthStr+dayStr+".csv";
+        console.log(url);
+        $.ajax({
+            url:url,
+            type:"POST",
+            success:function(data){
+                var result = data.toString();
+                result = result.split('\n');
+
+                var pm25 = [];
+                var aqi = [];
+                var maxPm = 0;
+                var maxAqi = 0;
+
+                for(var i=1;i+1<result.length;i+=2){
+                    var pmHour = result[i].toString().split(',');
+                    var aqiHour = result[i+1].toString().split(',');
+                    var pmNow = parseFloat(pmHour[3]);
+                    var aqiNow = parseFloat(aqiHour[3]);
+                    maxPm = (pmNow>maxPm)?pmNow:maxPm;
+                    maxAqi = (aqiNow>maxAqi)?aqiNow:maxAqi;
+
+                    pm25.push(pmNow);
+                    aqi.push(aqiNow);
+
+                }
+
+                pollution.pm25 = pm25;
+                pollution.aqi = aqi;
+                pollution.maxPm = maxPm;
+                pollution.maxAqi = maxAqi;
+
+                callback.call();
+            }
+
+        });
+    }
+
+    function reRange(oldLeft, oldRight, newLeft, newRight, a){  //重新调整数字范围
+        var dist = (a-oldLeft)/(oldRight-oldLeft);
+        return (1-dist)*newLeft+dist*newRight;
+    }
+
+    function generateTip()
+    {
+        var wText;
+        var wSrc;
+        avgAqi /= (pcRight-pcLeft);
+        avgPm /= (pcRight-pcLeft);
+        if(avgAqi > 220){
+            wSrc = "data/sandy.jpg";
+            wText = "糟";
+        }
+        if(avgAqi < 220){
+            wSrc = "data/sandy.jpg";
+            wText = "差";
+        }
+        if(avgAqi < 130){
+            wSrc = "data/cloudy.jpg";
+            wText = "良";
+        }
+        if(avgAqi < 80){
+            wSrc = "data/sunny.jpg";
+            wText = "优";
+        }
+        $("#weatherText").html(
+                "AQI: "+avgAqi.toString().substr(0, 7)
+                +"<br/>Pm2.5: "+avgPm.toString().substr(0,7)
+                +"<br/>空气质量:"
+        );
+        $("#weatherText2").html(
+                wText
+        );
+        $("#weatherImg").attr("src", wSrc);
+        $("#weatherDiv").show(1000);
+    }
+
+    var dateIterator = new Date("2014/1/1");
+    var winterEnd = new Date("2014/3/1");
+    var springEnd = new Date("2014/6/1");
+    var summerEnd = new Date("2014/9/1");
+    var autumnEnd = new Date("2014/12/1");
+    var yearEnd = new Date("2015/1/1");
+
+    var dayCounter = 0;
+    var aqiStorage = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+    var pmStorage = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+    var seasonNow = 0; //01234
+
+    function showAverage() {
+        //初始化四季 和全年的信息
+        for(i=0;i<5;i++){
+            seasonMesh[i] = [];
+            seasonLinkMesh[i] = [];
+        }
+
+        for(j=0;j<5;j++) {
+            for (i = 0; i < pcRight - pcLeft; i++) {
+                seasonMesh[j][i] = new THREE.Mesh(new THREE.SphereGeometry(0.065, 10, 10),
+                        new THREE.MeshBasicMaterial({color: seasonColor[j==0?3:j-1]}));
+                seasonMesh[j][i].translateX(i + pcLeft);
+            }
+        }
+
+        for(i=0;i<pcRight-pcLeft;i++){
+            dataMesh[i].visible = false;
+            if(i!=pcRight-pcLeft-1)
+                linkMesh[i].visible = false;
+        }
+        //开始加载文档
+        var l = setInterval(function(){
+            if(dateIterator.toDateString() == yearEnd.toDateString()){
+                clearInterval(l);
+//                for(i=0;i<pcRight-pcLeft;i++){
+//                    dataMesh[i].visible = true;
+//                    if(i!=pcRight-pcLeft-1)
+//                        linkMesh[i].visible = true;
+//                }
+            }
+            loadCSV(pollution, dateIterator.getFullYear(), dateIterator.getMonth()+1, dateIterator.getDate(), afterIteration);
+        }, 50);
+    }
+
+    function afterIteration()
+    {
+        dayCounter++;
+        dateIterator.setDate(dateIterator.getDate()+1);
+        if(dateIterator >= yearEnd)return;
+        if(dateIterator < yearEnd) seasonNow = 0;
+        if(dateIterator < autumnEnd)seasonNow = 3;
+        if(dateIterator < summerEnd)seasonNow = 2;
+        if(dateIterator < springEnd)seasonNow = 1;
+        if(dateIterator < winterEnd)seasonNow = 0;
+        console.log(seasonNow);
+        for(i=0;i<pcRight-pcLeft;i++){
+            if(isNaN(pollution.aqi[i]) || isNaN(pollution.pm25[i]))continue;
+            scene.remove(seasonMesh[seasonNow][i]);         //移动点
+            aqiStorage[i] += pollution.aqi[i];
+            pmStorage[i] += pollution.pm25[i];
+
+            seasonMesh[seasonNow][i].translateY(reRange(0, 300, pcBottom, pcTop, aqiStorage[i]/dayCounter) - seasonMesh[seasonNow][i].position.y);
+            seasonMesh[seasonNow][i].translateZ(reRange(0, 200, pcFront, pcBack, pmStorage[i]/dayCounter) - seasonMesh[seasonNow][i].position.z);
+
+            scene.add(seasonMesh[seasonNow][i]);
+        }
+
+        var geo;
+        for (i = 0; i < pcRight - pcLeft - 1; i++) {        //连线
+            scene.remove(seasonLinkMesh[seasonNow][i]);
+            geo = new THREE.Geometry();
+            geo.vertices.push(seasonMesh[seasonNow][i].position, seasonMesh[seasonNow][i+1].position);
+
+            seasonLinkMesh[seasonNow][i] = new THREE.Line(geo, new THREE.LineBasicMaterial({color:seasonColor[judgeSeason(dateIterator.getMonth()+1)]}));
+            scene.add(seasonLinkMesh[seasonNow][i]);
+        }
+
+        if(dateIterator.toDateString() == winterEnd.toDateString()
+                || dateIterator.toDateString() == springEnd.toDateString()
+                || dateIterator.toDateString() == summerEnd.toDateString()
+                || dateIterator.toDateString() == yearEnd.toDateString()){
+            dayCounter = 0;
+            for(i=0;i<pcRight-pcLeft;i++){
+                aqiStorage[i] = 0;
+                pmStorage[i] = 0;
+            }
+
+        }
+        render();
+    }
+
+    function pick()
+    {
+        renderer.render(pickingScene, camera, pickingTexture);
+        var pixelBuffer = new Uint8Array(4);
+        renderer.readRenderTargetPixels(pickingTexture, mouse.x, pickingTexture.height-mouse.y, 1, 1, pixelBuffer);
+
+        var id= ( pixelBuffer[0]<<16) | (pixelBuffer[1]<<8) | (pixelBuffer[2]);
+        var data = pickingData[id];
+        if ( data) {
+            //move our highlightBox so that it surrounds the picked object
+            highlightSphere.position.copy(data);
+            highlightSphere.visible = true;
+            showDetail(id);
+        } else {
+            highlightSphere.visible = false;
+        }
+    }
+
+    renderer.domElement.addEventListener('mousemove', onMouseMove);     //绑定鼠标移动
+
+    function onMouseMove( e ) {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+    }
+
+    function showDetail(id)
+    {
+        if(document.getElementById("thisHourDetail"+id.toString()) != undefined)return;    //若已经存在，返回
+        var hourInfo = document.createElement("div");
+        hourInfo.setAttribute("style",
+                "position:absolute;"
+                +"left:"+mouse.x.toString()+"px;"
+                +"top:"+(mouse.y+10).toString()+"px;"
+        );
+        hourInfo.setAttribute("id", "thisHourDetail"+id.toString());
+        hourInfo.setAttribute("class", "thisHourDetail");
+        hourInfo.innerHTML = "<h3 id='hourTitle'>"+id.toString()+":00</h3>";
+        hourInfo.innerHTML += "<p id='hourPM'>PM2.5: "+pollution.pm25[id].toString()+"</p>";
+        hourInfo.innerHTML += "<p id='hourAQI'>AQI:   "+pollution.aqi[id].toString()+"</p>";
+
+        $(hourInfo).hide();
+        document.body.appendChild(hourInfo);
+        $(hourInfo).show(300);
+
+        var idi = setInterval(function(){
+            document.body.removeChild(hourInfo);
+            clearInterval(idi);
+        }, 1500);
+    }
+
+    var rolling = true;
+    var going = false;
+    var twoDmension = false;
+    var xNow = pcLeft;
+    $("#btn1").click(function(){
+        going = true;
+        xNow = pcLeft;
+    });
+    $("#btn2").click(function(){
+        rolling = !rolling;
+    });
+    $("#btn3").click(function(){
+        twoDmension = !twoDmension;
+        if(twoDmension){
+            for(i=0;i<4;i++){
+                scene.remove(pcMesh[i]);
+            }
+        }else{
+            for(i=0;i<4;i++){
+                scene.add(pcMesh[i]);
+            }
+        }
+        render();
+    });
+    $("#btn4").click(function(){
+        showAverage();
+    });
+    $("#btn6").click(function(){
+        pcColor = [0x66ccff, 0xd9f221, 0xd3d300, 0xc4b146];
+        generatePointCloud();
+        renderer.setClearColor(0xFFFFFF);
+        $(".pagetext").css("color", "black");
+    });
+    $("#btn7").click(function(){
+        pcColor = [0x663300, 0x996633, 0x333300, 0x333333];
+        generatePointCloud();
+        renderer.setClearColor(0x010000);
+        $(".pagetext").css("color", "white");
+    });
+    $("#dateTime").Zebra_DatePicker({
+        start_date:'2015-01-01',
+        direction: ['2013-12-01', '2015-01-31'],
+        onSelect: function(view, elements){
+            //console.log(view);
+            var ele = elements.toString();
+            var year = parseInt(ele.substr(0, 4));
+            var month = parseInt(ele.substr(5, 2));
+            var day = parseInt(ele.substr(8,2));
+
+            dateNow = new Date(year, month-1, day);
+
+            loadCSV(pollution, year, month, day, afterLoading);
+        }
+    });
+
+    function animate(){
+        requestAnimationFrame(animate);
+        if(rolling){
+            stormIsComing();
+        }
+        if(going){
+            goWithTheLine();
+        }
+        if(loadingComplete){
+            pick();
+            render();
+        }
+        controls.update();
+
+    }
+
+    function render(){
+        camera.lookAt(midPoint);
+
+        if(twoDmension)
+            renderer.render(scene, orCamera);
+        else renderer.render(scene, camera);
+    }
+
+</script>
+</html>
