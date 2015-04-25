@@ -219,10 +219,13 @@
     function load1(){
         $("#0").css("display","none");
         $("#1").css("left","0");
-        $("#1").html('<iframe id="frame1" frameborder="0" style="width: 100vw; height: 100vh"></iframe><span class="button" onclick="load2()">查看</span>');
-        var width = $(window).innerWidth();
-        var height = $(window).innerHeight();
-        $("#frame1").attr("src","LineChartTemplate.html");
+        setTimeout(function(){
+            $("#1").html('<iframe id="frame1" frameborder="0" style="width: 100vw; height: 100vh"></iframe><span class="button" onclick="load2()">查看</span>');
+            var width = $(window).innerWidth();
+            var height = $(window).innerHeight();
+            $("#frame1").attr("src","LineChartTemplate.html");
+        }, 300);
+
     }
     function load2(){
         $("#1").html("");
@@ -237,19 +240,25 @@
         $("#1").html("");
         $("#1").css("display","none");
         $("#2").css("left","0");
-        $("#2").html('<iframe id="frame3" frameborder="0" style="width: 100vw; height: 100vh"></iframe><span class="button" onclick="load4()">查看</span>');
-        var width = $(window).innerWidth();
-        var height = $(window).innerHeight();
-        $("#frame3").attr("src","BarChartTemplate.html");
+        setTimeout(function(){
+            $("#2").html('<iframe id="frame3" frameborder="0" style="width: 100vw; height: 100vh"></iframe><span class="button" onclick="load4()">查看</span>');
+            var width = $(window).innerWidth();
+            var height = $(window).innerHeight();
+            $("#frame3").attr("src","BarChartTemplate.html");
+        },300);
+
     }
     function load4(){
         $("#1").html("");
         $("#1").css("display","none");
         $("#2").css("left","0");
-        $("#2").html('<iframe id="frame4" frameborder="0" style="width: 100vw; height: 100vh"></iframe><span class="button" onclick="load0()">查看</span>');
-        var width = $(window).innerWidth();
-        var height = $(window).innerHeight();
-        $("#frame4").attr("src","MapLoader.html");
+        setTimeout(function(){
+            $("#2").html('<iframe id="frame4" frameborder="0" style="width: 100vw; height: 100vh"></iframe><span class="button" onclick="load0()">查看</span>');
+            var width = $(window).innerWidth();
+            var height = $(window).innerHeight();
+            $("#frame4").attr("src","MapLoader.html");
+        },300);
+
     }
     function load0(){
         $("#2").html("");

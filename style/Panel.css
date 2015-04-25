@@ -3,8 +3,8 @@
     top: 0;
     left: 0;
     width: 200px;
-    background-color: #AAAAAA;
-    color: #000000;
+    background-color: rgba(255, 255, 255, .3);
+    color: #fff;
 }
 
 .ZChartPanel:hover {
@@ -20,6 +20,7 @@ li {
     list-style: none;
     border-top: 1px solid black;
     height: 30px;
+    line-height: 30px;
 }
 
 li div {
@@ -36,8 +37,22 @@ li div {
 .item-li {
     border-left: 3px solid #0066cc;
     padding-left: 20px;
+    transition: all ease .3s;
 }
+.item-li:hover {
+    padding-left: 30px;
+}
+.check-li label {
+    margin-left: 6px;
+}
+.title-li {
+    padding-left: 5px;
+    transition: all ease-out .3s;
+}
+.title-li:hover {
+    padding-left: 10px;
 
+}
 #source-code-area {
     width:198px;
     height: 420px;

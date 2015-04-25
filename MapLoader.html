@@ -14,26 +14,44 @@
             margin: 0px;
             overflow: hidden;
         }
-        #btn1{
-            position:absolute;
-            top:20px;
-            right:20px;
+        .light {
+            color:rgba(200,255,255, .7);
+            text-shadow: 0 0 15px rgba(27,255,255,.8);
+            transition: all ease-out .2s;
+            cursor: pointer;
         }
-        #btn2{
-            position:absolute;
-            top:50px;
-            right:20px;
+        .light:hover {
+            text-shadow: 0 0 5px rgb(27,255,255);
         }
-        #btn3{
-            position:absolute;
-            top:80px;
-            right:20px;
+        .button-group {
+            display: block;
+            position: absolute;
+            top: 10px;
+            padding: 5px;
+            right: 0;
+
         }
-        #btn4{
-            position:absolute;
-            top:180px;
-            right:20px;
+        .btn {
+            display: inline-block;
+            position: relative;
+            margin: 5px 10px;
+            letter-spacing: 5px;
+            text-indent: 5px;
+            background-color: transparent;
+            padding: 8px 15px;
+            border: 2px solid rgba(100,255,255,.7);
+            color:rgba(27,255,255, .7);
+            text-shadow: 0 0 15px rgb(27,255,255);
+            box-shadow: 0 0 10px 1px rgba(27, 255, 255, .5),inset 0 0 8px 0px rgba(27, 255, 255, .5);
+            transition: all ease-out .2s;
+            cursor: pointer;
         }
+        .btn:hover {
+            transform: scale(1.2);
+            color:rgba(50,255,255, .9);
+            box-shadow: 0 0 10px 1px rgba(27, 255, 255, .7),inset 0 0 8px 0px rgba(27, 255, 255, .7);
+        }
+
         #minimap-div{
             position:absolute;
             right: 120px;
@@ -52,7 +70,6 @@
             border: 1px solid #6ce26c;
         }
         #page-title{
-            color:#999999;
             position:absolute;
             top:10px;
             left:10px;
@@ -60,11 +77,14 @@
     </style>
 </head>
 <body>
-<h2 id="page-title">国家GDP分布条形图</h2>
-<input type="button" id="btn1" value="显示数据" />
-<input type="button" id="btn2" value="数据排序" />
-<input type="button" id="btn3" value="2D<>3D"/>
-<input type="button" id="btn4" value="切换国家" />
+<h2 id="page-title" class="light">国家GDP分布条形图</h2>
+<div class="button-group">
+    <input type="button" class="btn" id="btn1" value="显示数据" />
+    <input type="button" class="btn" id="btn2" value="数据排序" />
+    <input type="button" class="btn" id="btn3" value="2D<>3D"/>
+    <input type="button" class="btn" id="btn4" value="切换国家" />
+</div>
+
 <div id="minimap-div">
     <img src="data/miniMap/USA.png" id="USA-img" class="miniImg"/>
     <img src="data/miniMap/China.png" id="China-img" class="miniImg"/>
