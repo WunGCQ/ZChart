@@ -42,6 +42,10 @@ li div {
 .item-li:hover {
     padding-left: 30px;
 }
+.static-item-li{
+    border-left: 3px solid #0066cc;
+    padding-left: 20px;
+}
 .check-li label {
     margin-left: 6px;
 }
@@ -68,4 +72,5 @@ li div {
 
 #submit-source-code {
     margin-left: 20px;
+    color:black;
 }
